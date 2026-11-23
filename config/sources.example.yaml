@@ -1,0 +1,234 @@
+# ==============================================================================
+# Anti-Algorithm Personal Hub - 数据源与过滤规则配置模板
+# 复制本文件为 config/sources.yaml 并按需修改（config/sources.yaml 已被 .gitignore 忽略）
+# ==============================================================================
+
+settings:
+  window_hours: 72 # 超过 72 小时自动退出当日 digest.json
+  max_summary_chars: 800 # 入库/送审前截断长度，防止长文 RSS 烧 Token
+  default_limit_per_source: 15 # 单源每次最多拉取条数
+  same_host_delay_seconds: 2.0 # 同域名 RSS 请求强制串行且间隔 2 秒，避免触发限流
+  max_digest_items: 15 # 每日前端最多导出高信噪比卡片数（宁缺毋滥）
+  min_digest_importance: 3 # 仅导出重要度 >= 3 的已处理卡片
+
+domains:
+  tech:
+    label: "AI 与开源"
+    spoiler_shield: false
+  esports:
+    label: "CS2 赛事"
+    spoiler_shield: true # 该领域默认触发防剧透拆分与毛玻璃遮罩
+  music:
+    label: "音乐动态"
+    spoiler_shield: false
+
+# ------------------------------------------------------------------------------
+# 1. RSS / Atom 订阅源
+# ------------------------------------------------------------------------------
+sources:
+  # ==================== Tech：AI & 开源高信噪比动态 ====================
+  - name: "Hacker News (High Signal)"
+    domain: "tech"
+    type: "rss"
+    url: "https://hnrss.org/frontpage?points=150"
+    limit: 15
+    enabled: true
+
+  - name: "Hugging Face Blog"
+    domain: "tech"
+    type: "rss"
+    url: "https://huggingface.co/blog/feed.xml"
+    limit: 12
+    enabled: true
+
+  - name: "GitHub Blog"
+    domain: "tech"
+    type: "rss"
+    url: "https://github.blog/feed/"
+    limit: 10
+    enabled: true
+
+  - name: "Ollama Releases"
+    domain: "tech"
+    type: "rss"
+    url: "https://github.com/ollama/ollama/releases.atom"
+    limit: 5
+    enabled: true
+
+  # ==================== Esports：CS2 赛事与版本更新 ====================
+  - name: "CS2 Esports (Google News)"
+    domain: "esports"
+    type: "rss"
+    url: "https://news.google.com/rss/search?q=(%22Counter-Strike+2%22+OR+CS2)+(Major+OR+IEM+OR+BLAST+OR+%22ESL+Pro+League%22+OR+esports)+when:3d&hl=en-US&gl=US&ceid=US:en"
+    limit: 12
+    enabled: true
+    note: "通用主题 CS2 赛事资讯聚合 RSS"
+
+  - name: "CS2 Official Updates (Steam)"
+    domain: "esports"
+    type: "rss"
+    url: "https://store.steampowered.com/feeds/news/app/730/"
+    limit: 8
+    enabled: true
+
+  # ==================== Music：通用音乐新闻与自定义订阅示例 ====================
+  - name: "Pitchfork News"
+    domain: "music"
+    type: "rss"
+    url: "https://pitchfork.com/feed/feed-news/rss"
+    limit: 12
+    enabled: true
+
+  - name: "NME Music News"
+    domain: "music"
+    type: "rss"
+    url: "https://www.nme.com/news/music/feed"
+    limit: 12
+    enabled: true
+
+  # 可选：自定义关注艺人 Google News 定向源示例
+  # - name: "Custom Artist Releases (Google News)"
+  #   domain: "music"
+  #   type: "rss"
+  #   url: "https://news.google.com/rss/search?q=(%22Artist+A%22+OR+%22Artist+B%22)+(album+OR+single+OR+MV+OR+release)+when:3d&hl=en-US&gl=US&ceid=US:en"
+  #   limit: 12
+  #   enabled: false
+
+  # 可选：YouTube 官方频道原生 Atom RSS 示例
+  # 可通过 scripts/resolve_yt_channels.py @Handle 解析真实 UC... 频道 ID；
+  # 厂牌频道可配合 exclude_shorts + include_keywords 仅保留目标艺人。
+  # - name: "Official Artist Channel (YouTube)"
+  #   domain: "music"
+  #   type: "rss"
+  #   url: "https://www.youtube.com/feeds/videos.xml?channel_id=UCxxxxxxxxxxxxxxxxxxxxxx"
+  #   limit: 5
+  #   exclude_shorts: true
+  #   include_keywords: ["MV", "M/V", "Official", "Audio"]
+  #   enabled: false
+
+# ------------------------------------------------------------------------------
+# 2. 重点关注实体（交给 LLM 提升 importance 权重，按需自行增删）
+# ------------------------------------------------------------------------------
+focus_entities:
+  tech:
+    - "DeepSeek"
+    - "Ollama"
+    - "Claude"
+    - "Gemini"
+    - "MCP"
+    - "Agent"
+  esports:
+    - "Major"
+    - "IEM"
+    - "BLAST"
+    - "ESL Pro League"
+  # 请在此添加你关注的艺人/组合名称，用于提权与 MusicBrainz 发行日历匹配
+  music: []
+
+# ------------------------------------------------------------------------------
+# 2.5 领域细分偏好与排除规则（供 LLM 精确判别去留：命中排除规则将打为 importance=0 丢弃）
+# ------------------------------------------------------------------------------
+domain_preferences:
+  music:
+    include:
+      - "focus_entities.music 名单内的艺人或组合新歌、专辑发布与官方 MV 动态"
+      - "主流音乐发行大事件与重要专辑/单曲动态"
+    exclude:
+      - "纯娱乐花边、艺人恋情/私生活八卦与无实质作品内容的营销水帖"
+  tech:
+    include:
+      - "AI 模型、Agent、开发工具链、主流编程语言与核心开源框架的重要发布或工程实践"
+    exclude:
+      - "过于晦涩且无通用价值的冷门个人杂谈、非主流老旧框架小众补丁等杂讯（直接打 0 或 1 丢弃）"
+  esports:
+    include:
+      - "CS2 一线国际赛事、focus_entities.esports 提及的赛事/战队动态与 CS2 官方重大更新"
+    exclude:
+      - "三线小比赛赛果、无根据转会传闻与选手场外八卦（直接打 0 丢弃）"
+
+# ------------------------------------------------------------------------------
+# 3. 过滤黑名单（硬规则初筛：标题或摘要命中即丢弃，不消耗 LLM Token）
+# ------------------------------------------------------------------------------
+blacklist_keywords:
+  # 中文营销、标题党、娱乐八卦与电竞噪音
+  zh:
+    - "震惊"
+    - "重磅炸弹"
+    - "彻底变天"
+    - "史诗级"
+    - "刚刚突发"
+    - "必看"
+    - "建议收藏"
+    - "抽奖"
+    - "转发抽"
+    - "福利"
+    - "领券"
+    - "带货"
+    - "限时折扣"
+    - "广告"
+    - "推广"
+    - "软文"
+    - "恰饭"
+    - "吃瓜"
+    - "塌房"
+    - "恋情曝光"
+    - "绯闻"
+    - "私生"
+    - "饭圈"
+    - "撕逼"
+    - "控评"
+    - "营销号"
+    - "盘点"
+    - "十大"
+    - "破防"
+    - "麻了"
+    - "菠菜"
+    - "竞猜"
+    - "赔率"
+    - "代练"
+    - "开箱出金"
+    - "饰品暴涨"
+
+  # 英文同构噪音（由于大量高质 RSS 为英文源，必须同步硬过滤）
+  en:
+    - "Sponsored"
+    - "Advertisement"
+    - "Giveaway"
+    - "Promo Code"
+    - "Affiliate"
+    - "Best Deals"
+    - "Betting"
+    - "Odds"
+    - "Predictions"
+    - "Skin Giveaway"
+    - "Gambling"
+    - "Dating Rumors"
+    - "Net Worth"
+    - "QUIZ:"
+    - "Gossip"
+    - "Click here"
+
+# ------------------------------------------------------------------------------
+# 4. 右侧栏日程配置与手动置顶项
+# ------------------------------------------------------------------------------
+upcoming_settings:
+  esports_window_hours: 48
+  music_window_days: 14
+  max_upcoming_items: 8
+  pandascore_tiers:
+    - "s"
+    - "a"
+
+upcoming: []
+
+# ------------------------------------------------------------------------------
+# 5. Windows 本地桌面静音提醒配置
+# ------------------------------------------------------------------------------
+notifications:
+  enabled: true
+  poll_interval_seconds: 60
+  cs2_lead_minutes: 15
+  cs2_only_focus_teams: true
+  quiet_hours: ["00:00", "08:00"]
+  cs2_bypass_quiet_hours: true
+  silent: true

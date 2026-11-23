@@ -1,0 +1,43 @@
+# Environment & secrets
+.env
+.env.*
+!.env.example
+config/sources.yaml
+!config/sources.example.yaml
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Local databases, runtime state, caches & logs
+data/*
+!data/.gitkeep
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+*.log
+
+# Frontend dependencies, build outputs & generated snapshots
+node_modules/
+web/node_modules/
+web/dist/
+web/.vite/
+web/public/digest.json
+web/public/terms.json
+web/public/*.tmp
+*.tsbuildinfo
+npm-debug.log*
+
+# Editor & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
