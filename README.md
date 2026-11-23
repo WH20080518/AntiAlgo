@@ -75,6 +75,10 @@ Copy-Item .env.example .env
 | `LLM_API_KEY` | 必填（使用 LLM 时） | 对应服务商的 API Key |
 | `LLM_MODEL` | 必填（使用 LLM 时） | 模型名称，如 `gpt-4o-mini`、`deepseek-chat` 等 |
 | `PANDASCORE_API_KEY` | 可选 | [PandaScore](https://www.pandascore.co/) 免费 Token，用于抓取 CS2 S/A 级赛程；未配置则自动跳过 |
+| `WEBHOOK_FEISHU_URL` | 可选 | 飞书自定义机器人 Webhook 地址（发送交互式卡片，附原文链接） |
+| `WEBHOOK_DISCORD_URL` | 可选 | Discord 频道 Webhook 地址（发送标准 Embed 卡片） |
+| `WEBHOOK_BARK_URL` | 可选 | Bark iOS 推送地址，格式：`https://api.day.app/你的Key` |
+| `WEBHOOK_CUSTOM_URL` | 可选 | 通用自定义 Webhook 地址（POST 发送标准 JSON：`type`、`title`、`summary`、`items`、`timestamp`） |
 
 #### 配置订阅源与偏好（`config/sources.yaml`）
 
@@ -150,6 +154,25 @@ npm --prefix web run dev
 uv run python -m pipeline.notifier --test
 # 或立即执行一次通知评估：
 uv run python -m pipeline.notifier --check
+```
+
+#### Webhook 多通道推送（可选）
+
+支持将每日情报汇总与高优提醒同步推送到 **飞书**（交互式卡片，附带原文链接）、**Discord**（标准 Embed 格式）、**Bark（iOS 推送）**（按 `AntiAlgo` 分组，高优采用 `timeSensitive`、汇总采用 `active` 级别，点击可直达链接）以及 **通用自定义 Webhook**（`POST` JSON，包含 `type`、`title`、`summary`、`items`、`timestamp` 字段）。
+
+1. **配置环境变量与策略**：
+   - 在 `.env` 中填入任意一个或多个 `WEBHOOK_FEISHU_URL` / `WEBHOOK_DISCORD_URL` / `WEBHOOK_BARK_URL` / `WEBHOOK_CUSTOM_URL`（Bark 兼容带或不带末尾 `/` 的地址；未配置任何地址时自动静默跳过）。
+   - 可在 `config/sources.yaml` 的 `webhook` 段按需调整策略（旧版配置文件缺少该段时自动采用安全默认值，完全向后兼容）：
+     - `enabled`：总开关（默认 `true`）
+     - `push_digest`：是否在 `pipeline.run` 完成后推送每日汇总（默认 `true`）
+     - `push_high_priority`：是否推送 CS2 赛前与 `importance >= 4` 高优提醒（默认 `true`）
+     - `respect_quiet_hours`：是否在 `notifications.quiet_hours` 免打扰时段内跳过推送（默认 `true`）
+   - **去重防刷屏**：自动复用 `data/notify_state.json` 记录已推送条目 ID（保留最近 500 条），避免重复推送；网络异常或超时（10 秒）会被安全捕获，不会阻断主管道。
+
+2. **一键测试 Webhook 连通性**：
+
+```bash
+uv run python -m pipeline.notifier --test-webhook
 ```
 
 ---

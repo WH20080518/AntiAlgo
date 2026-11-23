@@ -34,6 +34,7 @@ from pipeline.db import (
     upsert_raw_items,
     upsert_upcoming_events,
 )
+from pipeline.notifier import push_digest_webhook
 from pipeline.processor import (
     LLMConfigError,
     apply_hard_rules,
@@ -446,6 +447,19 @@ def run_pipeline(
         f"term={digest['daily_term']['term_en']}, "
         f"{len(digest['upcoming'])} upcoming -> {output_path}"
     )
+
+    try:
+        wh_res = push_digest_webhook(digest, config=config)
+        sent_channels = wh_res.get("sent_channels") or []
+        failed_channels = wh_res.get("failed") or {}
+        if sent_channels or failed_channels:
+            print(
+                f"[Webhook] Digest push: items={wh_res.get('item_count', 0)}, "
+                f"sent={sent_channels}, failed={list(failed_channels.keys())}"
+            )
+    except Exception as exc:  # noqa: BLE001 - never let webhook push fail pipeline
+        print(f"[Webhook] Digest push skipped due to error: {type(exc).__name__}: {exc}")
+
     return 0
 
 

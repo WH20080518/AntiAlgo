@@ -232,3 +232,12 @@ notifications:
   quiet_hours: ["00:00", "08:00"]
   cs2_bypass_quiet_hours: true
   silent: true
+
+# ------------------------------------------------------------------------------
+# 6. Webhook 多通道推送配置（需在 .env 中配置至少一个 WEBHOOK_*_URL 才会发送）
+# ------------------------------------------------------------------------------
+webhook:
+  enabled: true # 总开关（未配置任何 WEBHOOK_*_URL 时自动静默跳过）
+  push_digest: true # 是否在管道运行后推送每日汇总
+  push_high_priority: true # 是否推送高优单条/合并提醒
+  respect_quiet_hours: true # 免打扰时段（复用 notifications.quiet_hours）内跳过推送

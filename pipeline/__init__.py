@@ -135,6 +135,19 @@ def get_notification_settings(config: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def get_webhook_settings(config: dict[str, Any]) -> dict[str, Any]:
+    """Return Webhook push settings with safe backward-compatible defaults."""
+    raw = config.get("webhook")
+    if not isinstance(raw, dict):
+        raw = {}
+    return {
+        "enabled": bool(raw.get("enabled", True)),
+        "push_digest": bool(raw.get("push_digest", True)),
+        "push_high_priority": bool(raw.get("push_high_priority", True)),
+        "respect_quiet_hours": bool(raw.get("respect_quiet_hours", True)),
+    }
+
+
 def get_rss_sources(config: dict[str, Any]) -> list[dict[str, Any]]:
     """Return enabled RSS/Atom sources supporting both 'sources' and legacy 'rss_sources'."""
     raw_sources = config.get("sources")
