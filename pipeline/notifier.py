@@ -13,6 +13,7 @@ import subprocess
 import sys
 import threading
 from typing import Any, Callable
+from urllib.parse import urlsplit
 from xml.sax.saxutils import escape as xml_escape
 
 from dotenv import load_dotenv
@@ -736,6 +737,29 @@ def _is_http_url(url: str | None) -> bool:
     return lowered.startswith("http://") or lowered.startswith("https://")
 
 
+def _is_loopback_url(url: str | None) -> bool:
+    if not _is_http_url(url):
+        return False
+    try:
+        hostname = (urlsplit(str(url).strip()).hostname or "").strip().lower()
+    except ValueError:
+        return False
+    return hostname in {"127.0.0.1", "localhost", "::1", "0.0.0.0"}
+
+
+def get_hub_public_url(public_url_override: str | None = None) -> str:
+    """Return configured non-loopback HUB_PUBLIC_URL for mobile push links, or ''."""
+    if public_url_override is None:
+        load_dotenv(ROOT_DIR / ".env", override=False)
+        raw_val = os.getenv("HUB_PUBLIC_URL", "")
+    else:
+        raw_val = public_url_override
+    cleaned = str(raw_val or "").strip()
+    if _is_http_url(cleaned) and not _is_loopback_url(cleaned):
+        return cleaned
+    return ""
+
+
 def get_webhook_urls(
     urls_override: dict[str, str | None] | None = None,
 ) -> dict[str, str]:
@@ -912,12 +936,44 @@ def _truncate_bark_body(text: str, max_chars: int = BARK_BODY_MAX_CHARS) -> str:
     return cleaned[: max_chars - 1].rstrip() + "…"
 
 
+def _resolve_bark_url(
+    msg_type: str,
+    items: list[dict[str, Any]],
+    *,
+    public_url: str | None = None,
+) -> str | None:
+    eff_public = get_hub_public_url(public_url)
+    first_url = next(
+        (
+            str(it.get("url") or "").strip()
+            for it in items
+            if _is_http_url(it.get("url"))
+        ),
+        "",
+    )
+
+    if msg_type == "digest":
+        if eff_public:
+            return eff_public
+        if first_url and not _is_loopback_url(first_url):
+            return first_url
+        return None
+
+    if first_url and not _is_loopback_url(first_url):
+        return first_url
+    if eff_public:
+        return eff_public
+    return None
+
+
 def build_bark_payload(
     msg_type: str,
     title: str,
     summary: str,
     items: list[dict[str, Any]],
     timestamp: str,
+    *,
+    public_url: str | None = None,
 ) -> dict[str, Any]:
     """Build Bark iOS push JSON payload."""
     del timestamp  # Bark uses server receive time
@@ -949,16 +1005,9 @@ def build_bark_payload(
         "level": "timeSensitive" if msg_type == "high_priority" else "active",
     }
 
-    first_url = next(
-        (
-            str(it.get("url") or "").strip()
-            for it in items
-            if _is_http_url(it.get("url"))
-        ),
-        "",
-    )
-    if first_url:
-        payload["url"] = first_url
+    target_url = _resolve_bark_url(msg_type, items, public_url=public_url)
+    if target_url:
+        payload["url"] = target_url
 
     return payload
 

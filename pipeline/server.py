@@ -486,9 +486,17 @@ class ExclusiveThreadingHTTPServer(ThreadingHTTPServer):
         super().server_bind()
 
 
+def _local_probe_host(host: str) -> str:
+    cleaned = str(host or "").strip()
+    if cleaned in {"", "0.0.0.0", "::", "[::]"}:
+        return DEFAULT_HOST
+    return cleaned
+
+
 def is_hub_running(host: str, port: int, timeout: float = 1.0) -> bool:
     """Return True if our local Anti-Algorithm Hub server already responds on host:port."""
-    url = f"http://{host}:{port}/api/status"
+    probe_host = _local_probe_host(host)
+    url = f"http://{probe_host}:{port}/api/status"
     try:
         opener = build_opener(ProxyHandler({}))
         req = Request(url, method="GET")
@@ -513,7 +521,7 @@ def serve_forever(
     logger = _configure_runtime_logging()
 
     if is_hub_running(host, port):
-        logger.info("服务已在 http://%s:%d 运行，跳过重复启动。", host, port)
+        logger.info("服务已在 http://%s:%d 运行，跳过重复启动。", _local_probe_host(host), port)
         return 0
 
     runtime = HubRuntime(
@@ -521,7 +529,7 @@ def serve_forever(
         digest_path=digest_path,
         config_path=config_path,
         logger=logger,
-        hub_url=f"http://{host}:{port}",
+        hub_url=f"http://{_local_probe_host(host)}:{port}",
     )
     handler_factory = partial(HubRequestHandler, runtime=runtime)
 

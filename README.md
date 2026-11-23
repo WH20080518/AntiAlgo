@@ -78,6 +78,7 @@ Copy-Item .env.example .env
 | `WEBHOOK_FEISHU_URL` | 可选 | 飞书自定义机器人 Webhook 地址（发送交互式卡片，附原文链接） |
 | `WEBHOOK_DISCORD_URL` | 可选 | Discord 频道 Webhook 地址（发送标准 Embed 卡片） |
 | `WEBHOOK_BARK_URL` | 可选 | Bark iOS 推送地址，格式：`https://api.day.app/你的Key` |
+| `HUB_PUBLIC_URL` | 可选 | 手机端推送（如 Bark）跳转的看板地址（如 Tailscale IP 或局域网地址：`http://100.x.x.x:8765`）；未配置时自动省略本地回环跳转链接 |
 | `WEBHOOK_CUSTOM_URL` | 可选 | 通用自定义 Webhook 地址（POST 发送标准 JSON：`type`、`title`、`summary`、`items`、`timestamp`） |
 
 #### 配置订阅源与偏好（`config/sources.yaml`）
@@ -138,7 +139,7 @@ uv run python -m pipeline.run
 uv run python -m pipeline.server
 ```
 
-默认监听 `http://127.0.0.1:8765`（支持 `--host`、`--port`、`--dist`、`--digest`、`--config` 参数），提供静态页面托管、后台刷新（`/api/refresh`）、状态轮询（`/api/status`）、通知控制（`/api/notify/status`、`/api/notify/toggle`、`/api/notify/test`）与术语本掌握状态持久化（`/api/terms`、`/api/terms/mastered`）。
+默认监听 `http://127.0.0.1:8765`（支持 `--host`、`--port`、`--dist`、`--digest`、`--config` 参数），提供静态页面托管、后台刷新（`/api/refresh`）、状态轮询（`/api/status`）、通知控制（`/api/notify/status`、`/api/notify/toggle`、`/api/notify/test`）与术语本掌握状态持久化（`/api/terms`、`/api/terms/mastered`）。如需通过局域网或 Tailscale 在手机端访问看板，可传入 `--host 0.0.0.0 --port 8765` 绑定全网卡。
 
 **前端开发热更新模式：**
 
@@ -162,6 +163,7 @@ uv run python -m pipeline.notifier --check
 
 1. **配置环境变量与策略**：
    - 在 `.env` 中填入任意一个或多个 `WEBHOOK_FEISHU_URL` / `WEBHOOK_DISCORD_URL` / `WEBHOOK_BARK_URL` / `WEBHOOK_CUSTOM_URL`（Bark 兼容带或不带末尾 `/` 的地址；未配置任何地址时自动静默跳过）。
+   - 使用 Bark 时，可选配置 `HUB_PUBLIC_URL`（如 Tailscale IP `http://100.x.x.x:8765` 或局域网地址）：高优单条自带外部新闻链接时会保持原样跳转；若跳转目标为 `127.0.0.1` / `localhost` 等本地地址（如测试推送或汇总看板），配置了 `HUB_PUBLIC_URL` 则自动替换为其跳转，未配置则自动省略 `url` 字段以免手机端点击打不开。
    - 可在 `config/sources.yaml` 的 `webhook` 段按需调整策略（旧版配置文件缺少该段时自动采用安全默认值，完全向后兼容）：
      - `enabled`：总开关（默认 `true`）
      - `push_digest`：是否在 `pipeline.run` 完成后推送每日汇总（默认 `true`）
